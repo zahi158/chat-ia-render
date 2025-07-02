@@ -59,3 +59,4 @@ async def chat(req: Request):
     chunks = retrieve_chunks(query)
     answer = answer_question(query, chunks)
     return {"answer": answer}
+

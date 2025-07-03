@@ -99,41 +99,63 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mapeo: IP -> {"fase": 1, "pregunta": str}
+user_states: Dict[str, Dict] = defaultdict(dict)
+
 @app.post("/chat")
 async def chat(req: Request):
     data = await req.json()
-    query = data.get("question", "").strip()
+    query = data.get("question", "").strip().lower()
     client_ip = req.client.host
 
-    # Si hay una pregunta pendiente y el usuario responde con su nombre
-    pregunta_pendiente = pending_questions.get(client_ip)
-    if pregunta_pendiente:
-        if len(query.split()) >= 2:  # Detectar nombre completo
+    # --------------------------
+    # FASE 3: Esperando el nombre
+    # --------------------------
+    if user_states.get(client_ip, {}).get("fase") == 2:
+        if len(query.split()) >= 2:
             nombre = query
-            enviar_email_profesor(pregunta_pendiente, nombre)
-            pending_questions.pop(client_ip)
+            pregunta = user_states[client_ip]["pregunta"]
+            enviar_email_profesor(pregunta, nombre)
+            user_states.pop(client_ip)
             return {
                 "answer": f"Gracias {nombre}, hemos enviado tu pregunta a un profesional. "
-                          "En cuanto puedan, se pondrán en contacto contigo. "
-                          "¿Tienes alguna otra pregunta sobre el curso de gestión del enfado?"
+                          "¿Tienes alguna otra duda relacionada con el curso?"
             }
         else:
             return {
-                "answer": "Por favor, dime tu nombre completo para enviar tu pregunta a un profesional."
+                "answer": "Por favor, dime tu nombre completo para poder enviar tu pregunta al profesional."
             }
 
-    # Evaluar si la pregunta es relevante
+    # --------------------------
+    # FASE 2: Esperando confirmación "sí"
+    # --------------------------
+    if user_states.get(client_ip, {}).get("fase") == 1:
+        if "sí" in query or "si" in query:
+            user_states[client_ip]["fase"] = 2
+            return {
+                "answer": "Perfecto. Por favor, dime tu nombre completo para enviar tu pregunta al profesional."
+            }
+        else:
+            user_states.pop(client_ip)
+            return {"answer": "De acuerdo 😊 Si tienes otra duda relacionada con el curso, estaré encantado de ayudarte."}
+
+    # --------------------------
+    # FASE 1: Validar la pregunta
+    # --------------------------
     context_chunks, irrelevant = retrieve_chunks(query)
     if irrelevant or not context_chunks or len(context_chunks) < 2:
-        pending_questions[client_ip] = query
+        user_states[client_ip] = {"fase": 1, "pregunta": query}
         return {
             "answer": "Lo siento, esta pregunta no está relacionada con el curso de gestión del enfado. "
-                      "¿Quieres que la envíe a un profesional? Por favor, dime tu nombre completo."
+                      "¿Quieres que la envíe a un profesional?"
         }
 
+    # --------------------------
     # Pregunta válida → responder
+    # --------------------------
     answer = answer_question(query, context_chunks)
     return {"answer": answer}
+
 
 
 

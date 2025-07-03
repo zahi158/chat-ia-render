@@ -35,6 +35,7 @@ def get_query_embedding(query):
 def retrieve_chunks(query, k=5, threshold=SIMILARITY_THRESHOLD):
     embedding = get_query_embedding(query)
     distances, indices = index.search(embedding, k)
+    print(f"Distancias: {distances[0]}")  # 👈 te muestra la similitud real
     relevant = [i for i, dist in zip(indices[0], distances[0]) if dist <= threshold]
     if not relevant:
         return [], True
@@ -132,18 +133,21 @@ async def chat(req: Request):
         else:
             return {"answer": "Por favor, dime tu nombre completo para poder enviar tu pregunta al profesional."}
 
-    # FASE 0: Validar pregunta nueva
+    # FASE 0: Validar pregunta nueva con FAISS
     context_chunks, irrelevant = retrieve_chunks(query)
-    if irrelevant or not context_chunks or len(context_chunks) < 2:
+
+    if irrelevant:
+        # → No es del curso, iniciar flujo de confirmación
         user_states[client_ip] = {"fase": 1, "pregunta": query}
         return {
             "answer": "Lo siento, esta pregunta no está relacionada con el curso de gestión del enfado. "
                       "¿Quieres que la envíe a un profesional?"
         }
 
-    # Pregunta válida
+    # Pregunta válida → responder directamente
     answer = answer_question(query, context_chunks)
     return {"answer": answer}
+
 
 
 

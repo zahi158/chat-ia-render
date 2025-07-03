@@ -105,11 +105,13 @@ async def chat(req: Request):
     query = data.get("question", "").strip()
     client_ip = req.client.host
 
-    if client_ip in pending_questions:
-        if len(query.split()) >= 2:  
-            pregunta = pending_questions.pop(client_ip)
+    # Si hay una pregunta pendiente y el usuario responde con su nombre
+    pregunta_pendiente = pending_questions.get(client_ip)
+    if pregunta_pendiente:
+        if len(query.split()) >= 2:  # Detectar nombre completo
             nombre = query
-            enviar_email_profesor(pregunta, nombre)
+            enviar_email_profesor(pregunta_pendiente, nombre)
+            pending_questions.pop(client_ip)
             return {
                 "answer": f"Gracias {nombre}, hemos enviado tu pregunta a un profesional. "
                           "En cuanto puedan, se pondrán en contacto contigo. "
@@ -120,8 +122,8 @@ async def chat(req: Request):
                 "answer": "Por favor, dime tu nombre completo para enviar tu pregunta a un profesional."
             }
 
+    # Evaluar si la pregunta es relevante
     context_chunks, irrelevant = retrieve_chunks(query)
-
     if irrelevant or not context_chunks or len(context_chunks) < 2:
         pending_questions[client_ip] = query
         return {
@@ -129,8 +131,10 @@ async def chat(req: Request):
                       "¿Quieres que la envíe a un profesional? Por favor, dime tu nombre completo."
         }
 
+    # Pregunta válida → responder
     answer = answer_question(query, context_chunks)
     return {"answer": answer}
+
 
 
 

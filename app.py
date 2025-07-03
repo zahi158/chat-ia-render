@@ -25,6 +25,8 @@ pending_questions: Dict[str, str] = defaultdict(str)
 
 # ==== FUNCIONES ====
 
+SIMILARITY_THRESHOLD = 0.80
+
 def get_query_embedding(query):
     query = query.replace("\n", " ")
     response = client.embeddings.create(input=[query], model="text-embedding-ada-002")

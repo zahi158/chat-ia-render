@@ -30,12 +30,13 @@ def get_query_embedding(query):
     response = client.embeddings.create(input=[query], model="text-embedding-ada-002")
     return np.array(response.data[0].embedding, dtype=np.float32).reshape(1, -1)
 
-def retrieve_chunks(query, k=5, threshold=0.85):
+def retrieve_chunks(query, k=5, threshold=SIMILARITY_THRESHOLD):
     embedding = get_query_embedding(query)
     distances, indices = index.search(embedding, k)
-    if all(dist > threshold for dist in distances[0]):
+    relevant = [i for i, dist in zip(indices[0], distances[0]) if dist <= threshold]
+    if not relevant:
         return [], True
-    return [chunks[i]["text"] for i in indices[0]], False
+    return [chunks[i]["text"] for i in relevant], False
 
 def answer_question(query, context_chunks):
     context = "\n\n".join(context_chunks)

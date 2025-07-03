@@ -42,18 +42,24 @@ def retrieve_chunks(query, k=5, threshold=SIMILARITY_THRESHOLD):
 
 def answer_question(query, context_chunks):
     context = "\n\n".join(context_chunks)
-    prompt = f"""You are an assistant for course content. Use the context to answer the question.
+    prompt = f"""
+You are a helpful assistant that only answers questions strictly related to the course "Gestión del enfado en la infancia".
 
-Context:
+You have the following context extracted from the course materials:
+
 {context}
+
+If the question is not clearly related to emotional regulation, anger management, or parenting, say: 
+"Lo siento, esta pregunta no está relacionada con el curso de gestión del enfado. ¿Quieres que la envíe a un profesional?"
 
 Question: {query}
 
-Answer:"""
+Answer in Spanish:
+"""
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.3
+        temperature=0.2
     )
     return response.choices[0].message.content.strip()
 
@@ -101,7 +107,7 @@ async def chat(req: Request):
 
     # Si el usuario está completando una pregunta pendiente con su nombre
     if pending_questions[client_ip]:
-        if len(query.split()) >= 2:  # Detecta nombre completo por número de palabras
+        if len(query.split()) >= 2:
             pregunta = pending_questions.pop(client_ip)
             nombre = query
             enviar_email_profesor(pregunta, nombre)
@@ -116,7 +122,7 @@ async def chat(req: Request):
     # Pregunta normal → validamos
     context_chunks, irrelevant = retrieve_chunks(query)
 
-    if irrelevant or not context_chunks:
+    if irrelevant or not context_chunks or len(context_chunks) < 2:
         pending_questions[client_ip] = query
         return {
             "answer": "Lo siento, solo puedo responder preguntas relacionadas con el curso de gestión del enfado. "

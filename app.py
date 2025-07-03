@@ -105,34 +105,32 @@ async def chat(req: Request):
     query = data.get("question", "").strip()
     client_ip = req.client.host
 
-    # Si ya hay una pregunta pendiente, esperamos el nombre
     if client_ip in pending_questions:
-        if len(query.split()) >= 2:  # asume nombre completo con al menos 2 palabras
+        if len(query.split()) >= 2:  
             pregunta = pending_questions.pop(client_ip)
             nombre = query
             enviar_email_profesor(pregunta, nombre)
             return {
                 "answer": f"Gracias {nombre}, hemos enviado tu pregunta a un profesional. "
-                          "En cuanto puedan, se pondrán en contacto contigo para ayudarte. "
-                          "¿Tienes alguna otra pregunta relacionada con el curso de gestión del enfado?"
+                          "En cuanto puedan, se pondrán en contacto contigo. "
+                          "¿Tienes alguna otra pregunta sobre el curso de gestión del enfado?"
             }
         else:
             return {
-                "answer": "Por favor, indícame tu nombre completo para poder enviar tu pregunta a un profesional."
+                "answer": "Por favor, dime tu nombre completo para enviar tu pregunta a un profesional."
             }
 
-    # Pregunta nueva
     context_chunks, irrelevant = retrieve_chunks(query)
 
     if irrelevant or not context_chunks or len(context_chunks) < 2:
         pending_questions[client_ip] = query
         return {
-            "answer": "Lo siento, solo puedo responder preguntas relacionadas con el curso de gestión del enfado. "
+            "answer": "Lo siento, esta pregunta no está relacionada con el curso de gestión del enfado. "
                       "¿Quieres que la envíe a un profesional? Por favor, dime tu nombre completo."
         }
 
-    # Pregunta válida → responder
     answer = answer_question(query, context_chunks)
     return {"answer": answer}
+
 
 

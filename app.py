@@ -145,8 +145,10 @@ async def chat(req: Request):
     context_chunks, irrelevant = retrieve_chunks(query)
     if irrelevant or not context_chunks or len(context_chunks) < 2:
         user_states[client_ip] = {"fase": 1, "pregunta": query}
-        return {"answer": "⚠️ PRUEBA DE NUEVO CÓDIGO. ¿Quieres que la envíe a un profesional?"}
-
+        return {
+            "answer": "Lo siento, esta pregunta no está relacionada con el curso de gestión del enfado. "
+                      "¿Quieres que la envíe a un profesional?"
+        }
 
     # --------------------------
     # Pregunta válida → responder

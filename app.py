@@ -107,41 +107,32 @@ async def chat(req: Request):
     data = await req.json()
     query = data.get("question", "").strip().lower()
     client_ip = req.client.host
+    state = user_states.get(client_ip, {})
 
-    # --------------------------
-    # FASE 3: Esperando el nombre
-    # --------------------------
-    if user_states.get(client_ip, {}).get("fase") == 2:
+    # FASE 2: Esperando confirmación de envío al profesional
+    if state.get("fase") == 1:
+        if query in {"sí", "si"}:
+            user_states[client_ip]["fase"] = 2
+            return {"answer": "Perfecto. Por favor, dime tu nombre completo para enviar tu pregunta al profesional."}
+        else:
+            user_states.pop(client_ip, None)
+            return {"answer": "De acuerdo 😊 Si tienes otra duda relacionada con el curso, estaré encantado de ayudarte."}
+
+    # FASE 3: Esperando nombre
+    if state.get("fase") == 2:
         if len(query.split()) >= 2:
             nombre = query
-            pregunta = user_states[client_ip]["pregunta"]
+            pregunta = state["pregunta"]
             enviar_email_profesor(pregunta, nombre)
-            user_states.pop(client_ip)
+            user_states.pop(client_ip, None)
             return {
                 "answer": f"Gracias {nombre}, hemos enviado tu pregunta a un profesional. "
                           "¿Tienes alguna otra duda relacionada con el curso?"
             }
         else:
-            return {
-                "answer": "Por favor, dime tu nombre completo para poder enviar tu pregunta al profesional."
-            }
+            return {"answer": "Por favor, dime tu nombre completo para poder enviar tu pregunta al profesional."}
 
-    # --------------------------
-    # FASE 2: Esperando confirmación "sí"
-    # --------------------------
-    if user_states.get(client_ip, {}).get("fase") == 1:
-        if "sí" in query or "si" in query:
-            user_states[client_ip]["fase"] = 2
-            return {
-                "answer": "Perfecto. Por favor, dime tu nombre completo para enviar tu pregunta al profesional."
-            }
-        else:
-            user_states.pop(client_ip)
-            return {"answer": "De acuerdo 😊 Si tienes otra duda relacionada con el curso, estaré encantado de ayudarte."}
-
-    # --------------------------
-    # FASE 1: Validar la pregunta
-    # --------------------------
+    # FASE 0: Validar pregunta nueva
     context_chunks, irrelevant = retrieve_chunks(query)
     if irrelevant or not context_chunks or len(context_chunks) < 2:
         user_states[client_ip] = {"fase": 1, "pregunta": query}
@@ -150,9 +141,7 @@ async def chat(req: Request):
                       "¿Quieres que la envíe a un profesional?"
         }
 
-    # --------------------------
-    # Pregunta válida → responder
-    # --------------------------
+    # Pregunta válida
     answer = answer_question(query, context_chunks)
     return {"answer": answer}
 
